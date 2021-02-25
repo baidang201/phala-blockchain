@@ -96,9 +96,9 @@ fn test_unstake() {
 		assert_eq!(MiningStaking::pending_unstaking(1, 3), 20);
 		// Cancel some unstaking
 		assert_ok!(MiningStaking::stake(Origin::signed(1), 3, 10));
-		assert_eq!(MiningStaking::pending_unstaking(1, 3), 10);
-		assert_eq!(MiningStaking::pending_staking(1, 3), 0);
-		assert_eq!(MiningStaking::wallet_locked(1), 0);
+		assert_eq!(MiningStaking::pending_unstaking(1, 3), Some(10));
+		assert_eq!(MiningStaking::pending_staking(1, 3), Some(0));
+		assert_eq!(MiningStaking::wallet_locked(1), Some(0));
 		// Unstake too much
 		assert_noop!(
 			MiningStaking::unstake(Origin::signed(1), 2, 51),
@@ -106,10 +106,10 @@ fn test_unstake() {
 		);
 		// Apply the pending unstaking
 		MiningStaking::handle_round_end();
-		assert_eq!(MiningStaking::wallet(1), 30);
-		assert_eq!(MiningStaking::staked(1, 2), 50);
-		assert_eq!(MiningStaking::staked(1, 3), 20);
-		assert_eq!(MiningStaking::stake_received(2), 50);
-		assert_eq!(MiningStaking::stake_received(3), 20);
+		assert_eq!(MiningStaking::wallet(1), Some(30));
+		assert_eq!(MiningStaking::staked(1, 2), Some(50));
+		assert_eq!(MiningStaking::staked(1, 3), Some(20));
+		assert_eq!(MiningStaking::stake_received(2), Some(50));
+		assert_eq!(MiningStaking::stake_received(3), Some(20));
 	});
 }
