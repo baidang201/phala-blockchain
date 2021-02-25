@@ -84,15 +84,15 @@ pub mod pallet {
 
 
   #[pallet::event]
-	#[pallet::metadata(T::AccountId = "AccountId", T::Balance = "BalanceOf<T>")]
+	#[pallet::metadata(T::AccountId = "AccountId", BalanceOf<T> = "Balance")]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// Event documentation should end with an array that provides descriptive names for event
 		/// parameters. [something, who]
 		/// Applied the pending stake
 		PendingStakeApplied,
-		PendingUnstakeAdded(T::AccountId, T::AccountId, T::Balance),
-		PendingStakeAdded(T::AccountId, T::AccountId, T::Balance),
+		PendingUnstakeAdded(T::AccountId, T::AccountId, BalanceOf<T>),
+		PendingStakeAdded(T::AccountId, T::AccountId, BalanceOf<T>),
   }
   
   #[pallet::error]
