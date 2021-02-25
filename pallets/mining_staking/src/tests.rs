@@ -93,7 +93,7 @@ fn test_unstake() {
 		// Unstake 20 to 3 in total
 		assert_ok!(MiningStaking::unstake(Origin::signed(1), 3, 10));
 		assert_ok!(MiningStaking::unstake(Origin::signed(1), 3, 10));
-		assert_eq!(MiningStaking::pending_unstaking(1, 3), 20);
+		assert_eq!(MiningStaking::pending_unstaking(1, 3), Some(20));
 		// Cancel some unstaking
 		assert_ok!(MiningStaking::stake(Origin::signed(1), 3, 10));
 		assert_eq!(MiningStaking::pending_unstaking(1, 3), Some(10));
