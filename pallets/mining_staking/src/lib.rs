@@ -21,7 +21,7 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
-type BalanceOf<T> = <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+pub type BalanceOf<T> = <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 const PALLET_ID: ModuleId = ModuleId(*b"PHAPoWS.");
 
