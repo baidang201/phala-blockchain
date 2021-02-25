@@ -21,8 +21,7 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
-type BalanceOf<T> =
-	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+type BalanceOf<T> = <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 const PALLET_ID: ModuleId = ModuleId(*b"PHAPoWS.");
 
@@ -109,7 +108,7 @@ pub mod pallet {
 		fn deposit(origin: OriginFor<T>, value: BalanceOf<T>) -> DispatchResultWithPostInfo  {
 			let sender = ensure_signed(origin)?;
 			T::Currency::transfer(
-				&sender, &Self::account_id(), value, ExistenceRequirement::KeepAlive)?;
+				&sender, &Self::account_id(), value, KeepAlive)?;
 			Wallet::<T>::mutate(sender, |balance| *balance += value);
 			Ok(())
 		}
@@ -121,7 +120,7 @@ pub mod pallet {
 			let available = Self::available(&sender);
 			ensure!(value <= available, Error::<T>::InsufficientFunds);
 			T::Currency::transfer(
-				&Self::account_id(), &sender, value, ExistenceRequirement::AllowDeath)?;
+				&Self::account_id(), &sender, value, AllowDeath)?;
 			Wallet::<T>::mutate(sender, |balance| *balance -= value);
 			Ok(())
 		}
@@ -234,7 +233,7 @@ pub mod pallet {
       });
       // Clear the pending staking
       WalletLocked::<T>::drain().for_each(drop);
-      Self::deposit_event(RawEvent::PendingStakeApplied)
+      Self::deposit_event(Event::PendingStakeApplied)
     }
   }
 
