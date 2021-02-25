@@ -19,8 +19,9 @@ use sp_runtime::{
 	RuntimeDebug, DispatchResult, DispatchError,
 	traits::{
 		AccountIdConversion, Zero, AtLeast32BitUnsigned, StaticLookup, CheckedAdd, CheckedSub,
-		MaybeSerializeDeserialize, Saturating, Bounded, StoredMapError,ModuleId,
+		MaybeSerializeDeserialize, Saturating, Bounded, StoredMapError
 	},
+	ModuleId,
 };
 pub use pallet::*;
 
