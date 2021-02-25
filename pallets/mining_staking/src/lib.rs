@@ -140,13 +140,13 @@ pub mod pallet {
 			let sender = ensure_signed(origin)?;
 			let zero: BalanceOf<T> = Zero::zero();
 			// Check there are enough funds
-			let pending_unstaking = PendingUnstaking::<T>::get(&sender, &to);
+			let pending_unstaking = PendingUnstaking::<T>::get(&sender, &to).unwrap_or_default();
 			let free = Self::available(&sender);
 			ensure!(value <= pending_unstaking + free, Error::<T>::InsufficientFunds);
 			// Cancel some unstaking operations first
 			let mut to_stake = value;
-			let to_cancel = cmp::min(pending_unstaking, Some(value));
-			if to_cancel > Some(zero) {
+			let to_cancel = cmp::min(pending_unstaking, value);
+			if to_cancel > zero {
 				PendingUnstaking::<T>::mutate(&sender, &to, |v| *v -= to_cancel);
 				to_stake -= to_cancel;
 			}
