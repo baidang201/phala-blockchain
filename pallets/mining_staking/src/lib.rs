@@ -106,7 +106,7 @@ pub mod pallet {
 		/// storage and emits an event. This function must be dispatched by a signed extrinsic.
     /// Deposits to the stash account wallet.
     #[pallet::weight(0 + T::DbWeight::get().writes(1))]
-		fn deposit(origin: OriginFor<T>, value: BalanceOf<T>) -> dispatch::DispatchResult {
+		fn deposit(origin: OriginFor<T>, value: BalanceOf<T>) -> DispatchResultWithPostInfo  {
 			let sender = ensure_signed(origin)?;
 			T::Currency::transfer(
 				&sender, &Self::account_id(), value, ExistenceRequirement::KeepAlive)?;
@@ -116,7 +116,7 @@ pub mod pallet {
 
 		/// Withdraws some available token from the stash account.
     #[pallet::weight(0 + T::DbWeight::get().reads_writes(1,1))]
-		fn withdraw(origin: OriginFor<T>, value: BalanceOf<T>) -> dispatch::DispatchResult {
+		fn withdraw(origin: OriginFor<T>, value: BalanceOf<T>) -> DispatchResultWithPostInfo  {
 			let sender = ensure_signed(origin)?;
 			let available = Self::available(&sender);
 			ensure!(value <= available, Error::<T>::InsufficientFunds);
@@ -128,7 +128,7 @@ pub mod pallet {
 
 		/// Adds some stake to a target
     #[pallet::weight(0 + T::DbWeight::get().reads_writes(1,1))]
-		fn stake(origin: OriginFor<T>, to: T::AccountId, value: BalanceOf<T>) -> dispatch::DispatchResult {
+		fn stake(origin: OriginFor<T>, to: T::AccountId, value: BalanceOf<T>) -> DispatchResultWithPostInfo  {
 			let sender = ensure_signed(origin)?;
 			let zero: BalanceOf<T> = Zero::zero();
 			// Check there are enough funds
@@ -151,7 +151,7 @@ pub mod pallet {
 
 		/// Remove some stack from a target
     #[pallet::weight(0 + T::DbWeight::get().reads_writes(1,1))]
-		fn unstake(origin: OriginFor<T>, to: T::AccountId, value: BalanceOf<T>) -> dispatch::DispatchResult {
+		fn unstake(origin: OriginFor<T>, to: T::AccountId, value: BalanceOf<T>) -> DispatchResultWithPostInfo  {
 			let sender = ensure_signed(origin)?;
 			let zero: BalanceOf<T> = Zero::zero();
 			// Check there are enough funds
@@ -173,7 +173,7 @@ pub mod pallet {
 		}
 
     #[pallet::weight(0 + T::DbWeight::get().reads_writes(1,1))]
-		fn force_trigger_round_end(origin: OriginFor<T>) -> dispatch::DispatchResult {
+		fn force_trigger_round_end(origin: OriginFor<T>) -> DispatchResultWithPostInfo  {
 			ensure_root(origin)?;
 			Self::handle_round_end();
 			Ok(())
