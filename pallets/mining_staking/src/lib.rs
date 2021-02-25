@@ -121,7 +121,7 @@ pub mod pallet {
 			let sender = ensure_signed(origin)?;
 			T::Currency::transfer(
 				&sender, &Self::account_id(), value, KeepAlive)?;
-			Wallet::<T>::mutate(sender, |balance| *balance += value.unwrap());
+			Wallet::<T>::mutate(sender, |balance| *balance += value.unwrap_or_default());
 			Ok(().into())
 		}
 
@@ -133,7 +133,7 @@ pub mod pallet {
 			ensure!(value <= available, Error::<T>::InsufficientFunds);
 			T::Currency::transfer(
 				&Self::account_id(), &sender, value, AllowDeath)?;
-			Wallet::<T>::mutate(sender, |balance| *balance -= value.unwrap());
+			Wallet::<T>::mutate(sender, |balance| *balance -= value.unwrap_or_default());
 			Ok(().into())
 		}
 
@@ -145,13 +145,13 @@ pub mod pallet {
 			// Check there are enough funds
 			let pending_unstaking = PendingUnstaking::<T>::get(&sender, &to);
 			let free = Self::available(&sender);
-			ensure!(value <= pending_unstaking.unwrap() + free, Error::<T>::InsufficientFunds);
+			ensure!(value <= pending_unstaking.unwrap_or_default() + free, Error::<T>::InsufficientFunds);
 			// Cancel some unstaking operations first
 			let mut to_stake = value;
 			let to_cancel = cmp::min(pending_unstaking, Some(value));
-			if to_cancel.unwrap() > Some(zero) {
-				PendingUnstaking::<T>::mutate(&sender, &to, |v| *v -= to_cancel.unwrap());
-				to_stake -= to_cancel.unwrap();
+			if to_cancel.unwrap_or_default() > Some(zero) {
+				PendingUnstaking::<T>::mutate(&sender, &to, |v| *v -= to_cancel.unwrap_or_default());
+				to_stake -= to_cancel.unwrap_or_default();
 			}
 			// Then move the free tokens to cover the rest
 			if to_stake > zero {
@@ -169,16 +169,16 @@ pub mod pallet {
 			let staked = Staked::<T>::get(&sender, &to);
 			let pending = PendingStaking::<T>::get(&sender, &to);
 			let unstaking = PendingUnstaking::<T>::get(&sender, &to);
-			let to_cancel = cmp::min(value, pending.unwrap());
+			let to_cancel = cmp::min(value, pending.unwrap_or_default());
 			let to_unstake = value - to_cancel;
-			ensure!(to_unstake + unstaking.unwrap() <= staked.unwrap(), Error::<T>::InsufficientStake);
+			ensure!(to_unstake + unstaking.unwrap_or_default() <= staked.unwrap_or_default(), Error::<T>::InsufficientStake);
 			// Cancel some new stake first
 			if to_cancel > zero {
 				Self::cancel_lock(&sender, &to, to_cancel);
 			}
 			// Then add more pending unstaking
 			if to_unstake > zero {
-				PendingUnstaking::<T>::mutate(&sender, &to, |v| *v += to_unstake.unwrap());
+				PendingUnstaking::<T>::mutate(&sender, &to, |v| *v += to_unstake.unwrap_or_default());
 			}
 			Ok(().into())
 		}
@@ -200,27 +200,27 @@ pub mod pallet {
   
     /// Gets the availabe funds (wallet minus the pending staking tokens)
     fn available(who: &T::AccountId) -> BalanceOf<T> {
-      Wallet::<T>::get(who).unwrap() - WalletLocked::<T>::get(who).unwrap()
+      Wallet::<T>::get(who).unwrap_or_default() - WalletLocked::<T>::get(who).unwrap_or_default()
     }
   
     fn lock(from: &T::AccountId, to: &T::AccountId, value: BalanceOf<T>) {
-      PendingStaking::<T>::mutate(&from, &to, |v| *v += value.unwrap());
-      WalletLocked::<T>::mutate(&from, |v| *v += value.unwrap());
+      PendingStaking::<T>::mutate(&from, &to, |v| *v += value.unwrap_or_default());
+      WalletLocked::<T>::mutate(&from, |v| *v += value.unwrap_or_default());
     }
   
     fn cancel_lock(from: &T::AccountId, to: &T::AccountId, value: BalanceOf<T>) {
-      PendingStaking::<T>::mutate(&from, &to, |v| *v -= value.unwrap());
-      WalletLocked::<T>::mutate(&from, |v| *v -= value.unwrap());
+      PendingStaking::<T>::mutate(&from, &to, |v| *v -= value.unwrap_or_default());
+      WalletLocked::<T>::mutate(&from, |v| *v -= value.unwrap_or_default());
     }
   
     fn inc_stake(from: &T::AccountId, to: &T::AccountId, value: BalanceOf<T>) {
-      Staked::<T>::mutate(&from, &to, |v| *v += value.unwrap());
-      StakeReceived::<T>::mutate(&to, |v| *v += value.unwrap());
+      Staked::<T>::mutate(&from, &to, |v| *v += value.unwrap_or_default());
+      StakeReceived::<T>::mutate(&to, |v| *v += value.unwrap_or_default());
     }
   
     fn dec_stake(from: &T::AccountId, to: &T::AccountId, value: BalanceOf<T>) {
-      Staked::<T>::mutate(&from, &to, |v| *v -= value.unwrap());
-      StakeReceived::<T>::mutate(&to, |v| *v -= value.unwrap());
+      Staked::<T>::mutate(&from, &to, |v| *v -= value.unwrap_or_default());
+      StakeReceived::<T>::mutate(&to, |v| *v -= value.unwrap_or_default());
     }
   
     /// Applies the pending staking and unstaking tokens at the end of a round.
@@ -232,7 +232,7 @@ pub mod pallet {
           staked += *value;
           Self::inc_stake(&from, &to, *value);
         }
-        Wallet::<T>::mutate(&from, |v| *v -= staked.unwrap());
+        Wallet::<T>::mutate(&from, |v| *v -= staked.unwrap_or_default());
       });
       // Apply unstaking
       group_by_key(PendingUnstaking::<T>::drain(), |from, group| {
@@ -241,7 +241,7 @@ pub mod pallet {
           unstaked += *value;
           Self::dec_stake(&from, &to, *value);
         }
-        Wallet::<T>::mutate(&from, |v| *v += unstaked.unwrap());
+        Wallet::<T>::mutate(&from, |v| *v += unstaked.unwrap_or_default());
       });
       // Clear the pending staking
       WalletLocked::<T>::drain().for_each(drop);
