@@ -48,17 +48,17 @@ pub mod pallet {
 
   #[pallet::storage]
 	#[pallet::getter(fn pending_staking)]
-  pub type PendingStaking<T, I = ()> = StorageDoubleMap<
+  pub type PendingStaking<T> = StorageDoubleMap<
 		_, Twox64Concat, T::AccountId, Twox64Concat, T::AccountId, BalanceOf<T>>;
   
   #[pallet::storage]
   #[pallet::getter(fn pending_unstaking)]
-  pub type PendingUnstaking<T, I = ()> = StorageDoubleMap<
+  pub type PendingUnstaking<T> = StorageDoubleMap<
     _, Twox64Concat, T::AccountId, Twox64Concat, T::AccountId, BalanceOf<T>>;
 
   #[pallet::storage]
   #[pallet::getter(fn staked)]
-  pub type Staked<T, I = ()> = StorageDoubleMap<
+  pub type Staked<T> = StorageDoubleMap<
     _, Twox64Concat, T::AccountId, Twox64Concat, T::AccountId, BalanceOf<T>>;
 
   // Indices
