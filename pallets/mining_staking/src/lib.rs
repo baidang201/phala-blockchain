@@ -1,10 +1,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 extern crate alloc;
-use sp_std::{cmp, fmt::Debug};
-use codec::{Codec, FullCodec};
+use sp_std::{cmp};
+use codec::{FullCodec};
 use sp_std::prelude::*;
-
-use frame_system::{ensure_root, ensure_signed};
 
 use alloc::vec::Vec;
 use frame_support::{
@@ -12,12 +10,11 @@ use frame_support::{
 		ExistenceRequirement::AllowDeath},
 	
 };
-#[cfg(feature = "std")]
 use sp_runtime::{
+	ModuleId,
 	traits::{
 		AccountIdConversion, Zero, AtLeast32BitUnsigned,
 	},
-	ModuleId,
 };
 pub use pallet::*;
 
