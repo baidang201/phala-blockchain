@@ -44,32 +44,32 @@ pub mod pallet {
 
   #[pallet::storage]
 	#[pallet::getter(fn wallet)]
-  pub type Wallet<T> = StorageMap<_, Twox64Concat, T::AccountId, BalanceOf<T>>;
+  pub type Wallet<T: Config> = StorageMap<_, Twox64Concat, T::AccountId, BalanceOf<T>>;
 
   #[pallet::storage]
 	#[pallet::getter(fn pending_staking)]
-  pub type PendingStaking<T> = StorageDoubleMap<
+  pub type PendingStaking<T: Config> = StorageDoubleMap<
 		_, Twox64Concat, T::AccountId, Twox64Concat, T::AccountId, BalanceOf<T>>;
   
   #[pallet::storage]
   #[pallet::getter(fn pending_unstaking)]
-  pub type PendingUnstaking<T> = StorageDoubleMap<
+  pub type PendingUnstaking<T: Config> = StorageDoubleMap<
     _, Twox64Concat, T::AccountId, Twox64Concat, T::AccountId, BalanceOf<T>>;
 
   #[pallet::storage]
   #[pallet::getter(fn staked)]
-  pub type Staked<T> = StorageDoubleMap<
+  pub type Staked<T: Config> = StorageDoubleMap<
     _, Twox64Concat, T::AccountId, Twox64Concat, T::AccountId, BalanceOf<T>>;
 
   // Indices
 	/// WalletLocked
   #[pallet::storage]
 	#[pallet::getter(fn wallet_locked)]
-  pub type WalletLocked<T> = StorageMap<_, Twox64Concat, T::AccountId, BalanceOf<T>>;
+  pub type WalletLocked<T: Config> = StorageMap<_, Twox64Concat, T::AccountId, BalanceOf<T>>;
 
   #[pallet::storage]
 	#[pallet::getter(fn stake_received)]
-  pub type StakeReceived<T> = StorageMap<_, Twox64Concat, T::AccountId, BalanceOf<T>>;
+  pub type StakeReceived<T: Config> = StorageMap<_, Twox64Concat, T::AccountId, BalanceOf<T>>;
 
 
   #[pallet::event]
