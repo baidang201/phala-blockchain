@@ -16,7 +16,6 @@ use frame_support::{
 use sp_runtime::{
 	traits::{
 		AccountIdConversion, Zero, AtLeast32BitUnsigned,
-		Saturating
 	},
 	ModuleId,
 };
@@ -163,9 +162,9 @@ pub mod pallet {
 			let sender = ensure_signed(origin)?;
 			let zero: BalanceOf<T> = Zero::zero();
 			// Check there are enough funds
-			let staked = Staked::<T>::get(&sender, &to);
-			let pending = PendingStaking::<T>::get(&sender, &to);
-			let unstaking = PendingUnstaking::<T>::get(&sender, &to);
+			let staked = Staked::<T>::get(&sender, &to).unwrap_or_default();
+			let pending = PendingStaking::<T>::get(&sender, &to).unwrap_or_default();
+			let unstaking = PendingUnstaking::<T>::get(&sender, &to).unwrap_or_default();
 			let to_cancel = cmp::min(value, pending);
 			let to_unstake = value - to_cancel;
 			ensure!(to_unstake + unstaking <= staked, Error::<T>::InsufficientStake);
@@ -197,7 +196,7 @@ pub mod pallet {
   
     /// Gets the availabe funds (wallet minus the pending staking tokens)
     fn available(who: &T::AccountId) -> BalanceOf<T> {
-      Wallet::<T>::get(who) - WalletLocked::<T>::get(who)
+      Wallet::<T>::get(who).unwrap_or_default() - WalletLocked::<T>::get(who).unwrap_or_default()
     }
   
     fn lock(from: &T::AccountId, to: &T::AccountId, value: BalanceOf<T>) {
