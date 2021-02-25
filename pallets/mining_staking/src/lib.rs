@@ -110,7 +110,7 @@ pub mod pallet {
 		/// storage and emits an event. This function must be dispatched by a signed extrinsic.
     /// Deposits to the stash account wallet.
     #[pallet::weight(0 + T::DbWeight::get().writes(1))]
-		fn deposit(origin: OriginFor<T>, value: BalanceOf<T>) -> DispatchResultWithPostInfo  {
+		pub fn deposit(origin: OriginFor<T>, value: BalanceOf<T>) -> DispatchResultWithPostInfo  {
 			let sender = ensure_signed(origin)?;
 			T::Currency::transfer(
 				&sender, &Self::account_id(), value, KeepAlive)?;
@@ -120,7 +120,7 @@ pub mod pallet {
 
 		/// Withdraws some available token from the stash account.
     #[pallet::weight(0 + T::DbWeight::get().reads_writes(1,1))]
-		fn withdraw(origin: OriginFor<T>, value: BalanceOf<T>) -> DispatchResultWithPostInfo  {
+		pub fn withdraw(origin: OriginFor<T>, value: BalanceOf<T>) -> DispatchResultWithPostInfo  {
 			let sender = ensure_signed(origin)?;
 			let available = Self::available(&sender);
 			ensure!(value <= available, Error::<T>::InsufficientFunds);
@@ -132,7 +132,7 @@ pub mod pallet {
 
 		/// Adds some stake to a target
     #[pallet::weight(0 + T::DbWeight::get().reads_writes(1,1))]
-		fn stake(origin: OriginFor<T>, to: T::AccountId, value: BalanceOf<T>) -> DispatchResultWithPostInfo  {
+		pub fn stake(origin: OriginFor<T>, to: T::AccountId, value: BalanceOf<T>) -> DispatchResultWithPostInfo  {
 			let sender = ensure_signed(origin)?;
 			let zero: BalanceOf<T> = Zero::zero();
 			// Check there are enough funds
@@ -155,7 +155,7 @@ pub mod pallet {
 
 		/// Remove some stack from a target
     #[pallet::weight(0 + T::DbWeight::get().reads_writes(1,1))]
-		fn unstake(origin: OriginFor<T>, to: T::AccountId, value: BalanceOf<T>) -> DispatchResultWithPostInfo  {
+		pub fn unstake(origin: OriginFor<T>, to: T::AccountId, value: BalanceOf<T>) -> DispatchResultWithPostInfo  {
 			let sender = ensure_signed(origin)?;
 			let zero: BalanceOf<T> = Zero::zero();
 			// Check there are enough funds
@@ -177,7 +177,7 @@ pub mod pallet {
 		}
 
     #[pallet::weight(0 + T::DbWeight::get().reads_writes(1,1))]
-		fn force_trigger_round_end(origin: OriginFor<T>) -> DispatchResultWithPostInfo  {
+		pub fn force_trigger_round_end(origin: OriginFor<T>) -> DispatchResultWithPostInfo  {
 			ensure_root(origin)?;
 			Self::handle_round_end();
 			Ok(().into())
@@ -192,7 +192,7 @@ pub mod pallet {
     }
   
     /// Gets the availabe funds (wallet minus the pending staking tokens)
-    fn available(who: &T::AccountId) -> BalanceOf<T> {
+    pub fn available(who: &T::AccountId) -> BalanceOf<T> {
       Wallet::<T>::get(who).unwrap_or_default() - WalletLocked::<T>::get(who).unwrap_or_default()
     }
   
@@ -247,9 +247,9 @@ pub mod pallet {
       Self::handle_round_end();
     }
   }
+}
 
-
-  fn group_by_key<I, Op, AccountId, Balance>(iter: I, mut op: Op)
+fn group_by_key<I, Op, AccountId, Balance>(iter: I, mut op: Op)
   where
     Balance: FullCodec + Copy,
     AccountId: FullCodec + PartialEq + Clone,
@@ -274,5 +274,3 @@ pub mod pallet {
       op(&last, &group);
     }
   }
-
-}
