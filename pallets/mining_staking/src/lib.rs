@@ -8,10 +8,19 @@ use frame_support::{dispatch, ensure};
 use frame_system::{ensure_root, ensure_signed};
 
 use alloc::vec::Vec;
-use sp_runtime::{
-	traits::{Currency, AccountIdConversion, Zero,  ExistenceRequirement, ExistenceRequirement::KeepAlive,
+use frame_support::{
+	traits::{Currency, ExistenceRequirement, ExistenceRequirement::KeepAlive,
 		ExistenceRequirement::AllowDeath},
 	ModuleId,
+};
+#[cfg(feature = "std")]
+use frame_support::traits::GenesisBuild;
+use sp_runtime::{
+	RuntimeDebug, DispatchResult, DispatchError,
+	traits::{
+		AccountIdConversion, Zero, AtLeast32BitUnsigned, StaticLookup, CheckedAdd, CheckedSub,
+		MaybeSerializeDeserialize, Saturating, Bounded, StoredMapError,
+	},
 };
 pub use pallet::*;
 
@@ -27,8 +36,9 @@ const PALLET_ID: ModuleId = ModuleId(*b"PHAPoWS.");
 
 #[frame_support::pallet]
 pub mod pallet {
-	use frame_support::{dispatch::DispatchResultWithPostInfo, pallet_prelude::*};
+	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
+	use super::*;
 
 	/// Configure the pallet by specifying the parameters and types on which it depends.
 	#[pallet::config]
