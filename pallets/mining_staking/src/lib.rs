@@ -122,7 +122,7 @@ pub mod pallet {
 			T::Currency::transfer(
 				&sender, &Self::account_id(), value, KeepAlive)?;
 			Wallet::<T>::mutate(sender, |balance| *balance += value);
-			Ok(())
+			Ok(().into())
 		}
 
 		/// Withdraws some available token from the stash account.
@@ -134,7 +134,7 @@ pub mod pallet {
 			T::Currency::transfer(
 				&Self::account_id(), &sender, value, AllowDeath)?;
 			Wallet::<T>::mutate(sender, |balance| *balance -= value);
-			Ok(())
+			Ok(().into())
 		}
 
 		/// Adds some stake to a target
@@ -157,7 +157,7 @@ pub mod pallet {
 			if to_stake > zero {
 				Self::lock(&sender, &to, to_stake);
 			}
-			Ok(())
+			Ok(().into())
 		}
 
 		/// Remove some stack from a target
@@ -180,14 +180,14 @@ pub mod pallet {
 			if to_unstake > zero {
 				PendingUnstaking::<T>::mutate(&sender, &to, |v| *v += to_unstake);
 			}
-			Ok(())
+			Ok(().into())
 		}
 
     #[pallet::weight(0 + T::DbWeight::get().reads_writes(1,1))]
 		fn force_trigger_round_end(origin: OriginFor<T>) -> DispatchResultWithPostInfo  {
 			ensure_root(origin)?;
 			Self::handle_round_end();
-			Ok(())
+			Ok(().into())
 		}
 
   }
