@@ -13,7 +13,7 @@ use frame_support::{
 use sp_runtime::{
 	ModuleId,
 	traits::{
-		AccountIdConversion, Zero, AtLeast32BitUnsigned,
+		AccountIdConversion, Zero
 	},
 };
 pub use pallet::*;
