@@ -13,6 +13,7 @@ use sp_runtime::{
 	traits::{AccountIdConversion, Zero},
 	ModuleId,
 };
+pub use pallet::*;
 
 #[cfg(test)]
 mod mock;
@@ -25,68 +26,86 @@ type BalanceOf<T> =
 
 const PALLET_ID: ModuleId = ModuleId(*b"PHAPoWS.");
 
-/// Configure the pallet by specifying the parameters and types on which it depends.
-pub trait Config: frame_system::Config {
-	type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
-	type Currency: Currency<Self::AccountId>;
-}
+#[frame_support::pallet]
+pub mod pallet {
+	use frame_support::{dispatch::DispatchResultWithPostInfo, pallet_prelude::*};
+	use frame_system::pallet_prelude::*;
 
-decl_storage! {
-	trait Store for Module<T: Config> as MiningStaking {
-		Wallet get(fn wallet): map hasher(twox_64_concat) T::AccountId => BalanceOf<T>;
-		PendingStaking get(fn pending_staking):
-			double_map
-				hasher(twox_64_concat) T::AccountId,
-				hasher(twox_64_concat) T::AccountId
-			=> BalanceOf<T>;
-		PendingUnstaking get(fn pending_unstaking):
-			double_map
-				hasher(twox_64_concat) T::AccountId,
-				hasher(twox_64_concat) T::AccountId
-			=> BalanceOf<T>;
-		Staked get(fn staked):
-			double_map
-				hasher(twox_64_concat) T::AccountId,
-				hasher(twox_64_concat) T::AccountId
-			=> BalanceOf<T>;
-
-		// Indices
-		/// WalletLocked
-		WalletLocked get(fn wallet_locked):
-			map hasher(twox_64_concat) T::AccountId => BalanceOf<T>;
-		StakeReceived get(fn stake_received):
-			map hasher(twox_64_concat) T::AccountId => BalanceOf<T>;
+	/// Configure the pallet by specifying the parameters and types on which it depends.
+	#[pallet::config]
+	pub trait Config: frame_system::Config {
+		/// Because this pallet emits events, it depends on the runtime's definition of an event.
+		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 	}
-}
 
-decl_event!(
-	pub enum Event<T>
-	where
-		AccountId = <T as frame_system::Config>::AccountId,
-		Balance = BalanceOf<T>,
-	{
+	#[pallet::pallet]
+	#[pallet::generate_store(pub(super) trait Store)]
+	pub struct Pallet<T>(_);
+
+  #[pallet::storage]
+	#[pallet::getter(fn wallet)]
+  pub type Wallet<T> = StorageMap<_, Twox64Concat, T::AccountId, BalanceOf<T>>;
+
+  #[pallet::storage]
+	#[pallet::getter(fn pending_staking)]
+  pub type PendingStaking<T, I = ()> = StorageDoubleMap<
+		_, Twox64Concat, T::AccountId, Twox64Concat, T::AccountId, BalanceOf<T>>;
+  
+  #[pallet::storage]
+  #[pallet::getter(fn pending_unstaking)]
+  pub type PendingUnstaking<T, I = ()> = StorageDoubleMap<
+    _, Twox64Concat, T::AccountId, Twox64Concat, T::AccountId, BalanceOf<T>>;
+
+  #[pallet::storage]
+  #[pallet::getter(fn staked)]
+  pub type Staked<T, I = ()> = StorageDoubleMap<
+    _, Twox64Concat, T::AccountId, Twox64Concat, T::AccountId, BalanceOf<T>>;
+
+  // Indices
+	/// WalletLocked
+  #[pallet::storage]
+	#[pallet::getter(fn wallet_locked)]
+  pub type WalletLocked<T> = StorageMap<_, Twox64Concat, T::AccountId, BalanceOf<T>>;
+
+  #[pallet::storage]
+	#[pallet::getter(fn stake_received)]
+  pub type StakeReceived<T> = StorageMap<_, Twox64Concat, T::AccountId, BalanceOf<T>>;
+
+
+  #[pallet::event]
+	#[pallet::metadata(T::AccountId = "AccountId", T::Balance = "BalanceOf<T>")]
+	#[pallet::generate_deposit(pub(super) fn deposit_event)]
+	pub enum Event<T: Config> {
+		/// Event documentation should end with an array that provides descriptive names for event
+		/// parameters. [something, who]
 		/// Applied the pending stake
 		PendingStakeApplied,
-		PendingUnstakeAdded(AccountId, AccountId, Balance),
-		PendingStakeAdded(AccountId, AccountId, Balance),
-	}
-);
-
-// Errors inform users that something went wrong.
-decl_error! {
-	pub enum Error for Module<T: Config> {
+		PendingUnstakeAdded(T::AccountId, T::AccountId, T::Balance),
+		PendingStakeAdded(T::AccountId, T::AccountId, T::Balance),
+  }
+  
+  #[pallet::error]
+	pub enum Error<T> {
+		/// Error names should be descriptive.
 		InsufficientFunds,
+		/// Errors should have helpful documentation associated with them.
 		InsufficientStake,
 	}
-}
 
-decl_module! {
-	pub struct Module<T: Config> for enum Call where origin: T::Origin {
-		type Error = Error<T>;
-		fn deposit_event() = default;
 
-		/// Deposits to the stash account wallet.
-		#[weight = 0]
+
+  #[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
+
+	// Dispatchable functions allows users to interact with the pallet and invoke state changes.
+	// These functions materialize as "extrinsics", which are often compared to transactions.
+	// Dispatchable functions must be annotated with a weight and must return a DispatchResult.
+	#[pallet::call]
+	impl<T:Config> Pallet<T> {
+		/// An example dispatchable that takes a singles value as a parameter, writes the value to
+		/// storage and emits an event. This function must be dispatched by a signed extrinsic.
+    /// Deposits to the stash account wallet.
+    #[pallet::weight(0 + T::DbWeight::get().writes(1))]
 		fn deposit(origin, value: BalanceOf<T>) -> dispatch::DispatchResult {
 			let sender = ensure_signed(origin)?;
 			T::Currency::transfer(
@@ -96,7 +115,7 @@ decl_module! {
 		}
 
 		/// Withdraws some available token from the stash account.
-		#[weight = 0]
+    #[pallet::weight(0 + T::DbWeight::get().reads_writes(1,1))]
 		fn withdraw(origin, value: BalanceOf<T>) -> dispatch::DispatchResult {
 			let sender = ensure_signed(origin)?;
 			let available = Self::available(&sender);
@@ -108,7 +127,7 @@ decl_module! {
 		}
 
 		/// Adds some stake to a target
-		#[weight = 0]
+    #[pallet::weight(0 + T::DbWeight::get().reads_writes(1,1))]
 		fn stake(origin, to: T::AccountId, value: BalanceOf<T>) -> dispatch::DispatchResult {
 			let sender = ensure_signed(origin)?;
 			let zero: BalanceOf<T> = Zero::zero();
@@ -131,7 +150,7 @@ decl_module! {
 		}
 
 		/// Remove some stack from a target
-		#[weight = 0]
+    #[pallet::weight(0 + T::DbWeight::get().reads_writes(1,1))]
 		fn unstake(origin, to: T::AccountId, value: BalanceOf<T>) -> dispatch::DispatchResult {
 			let sender = ensure_signed(origin)?;
 			let zero: BalanceOf<T> = Zero::zero();
@@ -153,99 +172,103 @@ decl_module! {
 			Ok(())
 		}
 
-		#[weight = 0]
+    #[pallet::weight(0 + T::DbWeight::get().reads_writes(1,1))]
 		fn force_trigger_round_end(origin) -> dispatch::DispatchResult {
 			ensure_root(origin)?;
 			Self::handle_round_end();
 			Ok(())
 		}
-	}
-}
 
-impl<T: Config> Module<T> {
-	pub fn account_id() -> T::AccountId {
-		PALLET_ID.into_account()
-	}
+  }
 
-	/// Gets the availabe funds (wallet minus the pending staking tokens)
-	fn available(who: &T::AccountId) -> BalanceOf<T> {
-		Wallet::<T>::get(who) - WalletLocked::<T>::get(who)
-	}
 
-	fn lock(from: &T::AccountId, to: &T::AccountId, value: BalanceOf<T>) {
-		PendingStaking::<T>::mutate(&from, &to, |v| *v += value);
-		WalletLocked::<T>::mutate(&from, |v| *v += value);
-	}
+  impl<T: Config> Pallet<T> {
+    pub fn account_id() -> T::AccountId {
+      PALLET_ID.into_account()
+    }
+  
+    /// Gets the availabe funds (wallet minus the pending staking tokens)
+    fn available(who: &T::AccountId) -> BalanceOf<T> {
+      Wallet::<T>::get(who) - WalletLocked::<T>::get(who)
+    }
+  
+    fn lock(from: &T::AccountId, to: &T::AccountId, value: BalanceOf<T>) {
+      PendingStaking::<T>::mutate(&from, &to, |v| *v += value);
+      WalletLocked::<T>::mutate(&from, |v| *v += value);
+    }
+  
+    fn cancel_lock(from: &T::AccountId, to: &T::AccountId, value: BalanceOf<T>) {
+      PendingStaking::<T>::mutate(&from, &to, |v| *v -= value);
+      WalletLocked::<T>::mutate(&from, |v| *v -= value);
+    }
+  
+    fn inc_stake(from: &T::AccountId, to: &T::AccountId, value: BalanceOf<T>) {
+      Staked::<T>::mutate(&from, &to, |v| *v += value);
+      StakeReceived::<T>::mutate(&to, |v| *v += value);
+    }
+  
+    fn dec_stake(from: &T::AccountId, to: &T::AccountId, value: BalanceOf<T>) {
+      Staked::<T>::mutate(&from, &to, |v| *v -= value);
+      StakeReceived::<T>::mutate(&to, |v| *v -= value);
+    }
+  
+    /// Applies the pending staking and unstaking tokens at the end of a round.
+    pub fn handle_round_end() {
+      // Apply staking
+      group_by_key(PendingStaking::<T>::drain(), |from, group| {
+        let mut staked: BalanceOf<T> = Zero::zero();
+        for (to, value) in group.iter() {
+          staked += *value;
+          Self::inc_stake(&from, &to, *value);
+        }
+        Wallet::<T>::mutate(&from, |v| *v -= staked);
+      });
+      // Apply unstaking
+      group_by_key(PendingUnstaking::<T>::drain(), |from, group| {
+        let mut unstaked: BalanceOf<T> = Zero::zero();
+        for (to, value) in group {
+          unstaked += *value;
+          Self::dec_stake(&from, &to, *value);
+        }
+        Wallet::<T>::mutate(&from, |v| *v += unstaked);
+      });
+      // Clear the pending staking
+      WalletLocked::<T>::drain().for_each(drop);
+      Self::deposit_event(RawEvent::PendingStakeApplied)
+    }
+  }
 
-	fn cancel_lock(from: &T::AccountId, to: &T::AccountId, value: BalanceOf<T>) {
-		PendingStaking::<T>::mutate(&from, &to, |v| *v -= value);
-		WalletLocked::<T>::mutate(&from, |v| *v -= value);
-	}
+  impl<T: Config> pallet_phala::OnRoundEnd for Pallet<T> {
+    fn on_round_end(_round: u32) {
+      Self::handle_round_end();
+    }
+  }
 
-	fn inc_stake(from: &T::AccountId, to: &T::AccountId, value: BalanceOf<T>) {
-		Staked::<T>::mutate(&from, &to, |v| *v += value);
-		StakeReceived::<T>::mutate(&to, |v| *v += value);
-	}
 
-	fn dec_stake(from: &T::AccountId, to: &T::AccountId, value: BalanceOf<T>) {
-		Staked::<T>::mutate(&from, &to, |v| *v -= value);
-		StakeReceived::<T>::mutate(&to, |v| *v -= value);
-	}
+  fn group_by_key<I, Op, AccountId, Balance>(iter: I, mut op: Op)
+  where
+    Balance: FullCodec + Copy,
+    AccountId: FullCodec + PartialEq + Clone,
+    I: Iterator<Item = (AccountId, AccountId, Balance)>,
+    Op: FnMut(&AccountId, &Vec<(AccountId, Balance)>),
+  {
+    let mut last_key: Option<AccountId> = None;
+    let mut group = Vec::<(AccountId, Balance)>::new();
+    for (from, to, value) in iter {
+      if let Some(ref last) = last_key {
+        if last != &from {
+          op(&last, &group);
+          group.clear();
+          last_key = Some(from.clone());
+        }
+      } else if last_key == None {
+        last_key = Some(from.clone());
+      }
+      group.push((to.clone(), value));
+    }
+    if let Some(last) = last_key {
+      op(&last, &group);
+    }
+  }
 
-	/// Applies the pending staking and unstaking tokens at the end of a round.
-	pub fn handle_round_end() {
-		// Apply staking
-		group_by_key(PendingStaking::<T>::drain(), |from, group| {
-			let mut staked: BalanceOf<T> = Zero::zero();
-			for (to, value) in group.iter() {
-				staked += *value;
-				Self::inc_stake(&from, &to, *value);
-			}
-			Wallet::<T>::mutate(&from, |v| *v -= staked);
-		});
-		// Apply unstaking
-		group_by_key(PendingUnstaking::<T>::drain(), |from, group| {
-			let mut unstaked: BalanceOf<T> = Zero::zero();
-			for (to, value) in group {
-				unstaked += *value;
-				Self::dec_stake(&from, &to, *value);
-			}
-			Wallet::<T>::mutate(&from, |v| *v += unstaked);
-		});
-		// Clear the pending staking
-		WalletLocked::<T>::drain().for_each(drop);
-		Self::deposit_event(RawEvent::PendingStakeApplied)
-	}
-}
-
-impl<T: Config> pallet_phala::OnRoundEnd for Module<T> {
-	fn on_round_end(_round: u32) {
-		Self::handle_round_end();
-	}
-}
-
-fn group_by_key<I, Op, AccountId, Balance>(iter: I, mut op: Op)
-where
-	Balance: FullCodec + Copy,
-	AccountId: FullCodec + PartialEq + Clone,
-	I: Iterator<Item = (AccountId, AccountId, Balance)>,
-	Op: FnMut(&AccountId, &Vec<(AccountId, Balance)>),
-{
-	let mut last_key: Option<AccountId> = None;
-	let mut group = Vec::<(AccountId, Balance)>::new();
-	for (from, to, value) in iter {
-		if let Some(ref last) = last_key {
-			if last != &from {
-				op(&last, &group);
-				group.clear();
-				last_key = Some(from.clone());
-			}
-		} else if last_key == None {
-			last_key = Some(from.clone());
-		}
-		group.push((to.clone(), value));
-	}
-	if let Some(last) = last_key {
-		op(&last, &group);
-	}
 }
