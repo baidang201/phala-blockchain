@@ -55,15 +55,15 @@ fn test_stake() {
 		setup_deposit();
 		// Stake 50 to 2 in total
 		assert_ok!(MiningStaking::stake(Origin::signed(1), 2, 30));
-		assert_eq!(MiningStaking::pending_staking(1, 2), 30);
+		assert_eq!(MiningStaking::pending_staking(1, 2), Some(30));
 		assert_ok!(MiningStaking::stake(Origin::signed(1), 2, 20));
-		assert_eq!(MiningStaking::pending_staking(1, 2), 50);
+		assert_eq!(MiningStaking::pending_staking(1, 2), Some(50));
 		// Stake 30 to 3
 		assert_ok!(MiningStaking::stake(Origin::signed(1), 3, 30));
-		assert_eq!(MiningStaking::pending_staking(1, 3), 30);
+		assert_eq!(MiningStaking::pending_staking(1, 3), Some(30));
 		// 20 remains available
 		assert_eq!(MiningStaking::available(&1), 20);
-		assert_eq!(MiningStaking::wallet_locked(1), 80);
+		assert_eq!(MiningStaking::wallet_locked(1), Some(80));
 		// Stake more than we have (stake 31 to 4)
 		assert_noop!(
 			MiningStaking::stake(Origin::signed(1), 4, 21),
@@ -71,15 +71,15 @@ fn test_stake() {
 		);
 		// Cancel some staking
 		assert_ok!(MiningStaking::unstake(Origin::signed(1), 3, 10));
-		assert_eq!(MiningStaking::pending_staking(1, 3), 20);
-		assert_eq!(MiningStaking::wallet_locked(1), 70);
+		assert_eq!(MiningStaking::pending_staking(1, 3), Some(20));
+		assert_eq!(MiningStaking::wallet_locked(1), Some(70));
 		// Apply the pending staking
 		MiningStaking::handle_round_end();
-		assert_eq!(MiningStaking::wallet(1), 30);
-		assert_eq!(MiningStaking::staked(1, 2), 50);
-		assert_eq!(MiningStaking::staked(1, 3), 20);
-		assert_eq!(MiningStaking::stake_received(2), 50);
-		assert_eq!(MiningStaking::stake_received(3), 20);
+		assert_eq!(MiningStaking::wallet(1), Some(30));
+		assert_eq!(MiningStaking::staked(1, 2), Some(50));
+		assert_eq!(MiningStaking::staked(1, 3), Some(20));
+		assert_eq!(MiningStaking::stake_received(2), Some(50));
+		assert_eq!(MiningStaking::stake_received(3), Some(20));
 	});
 }
 
