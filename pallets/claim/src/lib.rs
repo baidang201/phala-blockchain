@@ -1,9 +1,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 use codec::{Decode, Encode};
-use frame_support::{
-	ensure, traits::Currency,
-	RuntimeDebug,
-};
+use frame_support::{ensure, traits::Currency, RuntimeDebug};
 use frame_system::{ensure_none, ensure_root, ensure_signed};
 #[cfg(feature = "std")]
 use serde::{self, Deserialize, Deserializer, Serialize, Serializer};
@@ -12,6 +9,7 @@ use sp_runtime::transaction_validity::{
 	InvalidTransaction, TransactionLongevity, TransactionSource, TransactionValidity,
 	ValidTransaction,
 };
+
 use sp_std::prelude::*;
 
 #[cfg(test)]
@@ -111,12 +109,11 @@ impl<'de> Deserialize<'de> for EthereumTxHash {
 pub type BalanceOf<T> =
 	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
-
 #[frame_support::pallet]
 pub mod pallet {
+	use super::*;
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
-	use super::*;
 
 	/// Configure the pallet by specifying the parameters and types on which it depends.
 	#[pallet::config]
@@ -137,17 +134,16 @@ pub mod pallet {
 
 	#[pallet::storage]
 	#[pallet::getter(fn destroyed_transaction)]
-	pub type BurnedTransactions<T: Config> = StorageMap<_, Blake2_128Concat, EthereumTxHash, (EthereumAddress, BalanceOf<T>)>;
+	pub type BurnedTransactions<T: Config> =
+		StorageMap<_, Blake2_128Concat, EthereumTxHash, (EthereumAddress, BalanceOf<T>)>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn claim_state)]
 	pub type ClaimState<T: Config> = StorageMap<_, Blake2_128Concat, EthereumTxHash, bool>;
 
-
 	#[pallet::storage]
 	#[pallet::getter(fn relayer)]
 	pub type Relayer<T: Config> = StorageValue<_, Option<T::AccountId>>;
-
 
 	#[pallet::event]
 	#[pallet::metadata(T::AccountId = "AccountId", BalanceOf<T> = "Balance")]
@@ -190,47 +186,76 @@ pub mod pallet {
 	// These functions materialize as "extrinsics", which are often compared to transactions.
 	// Dispatchable functions must be annotated with a weight and must return a DispatchResult.
 	#[pallet::call]
-	impl<T:Config> Pallet<T> {
+	impl<T: Config> Pallet<T> {
 		/// An example dispatchable that takes a singles value as a parameter, writes the value to
 		/// storage and emits an event. This function must be dispatched by a signed extrinsic.
 		/// Deposits to the stash account wallet.
-		
+
 		#[pallet::weight(0 + T::DbWeight::get().reads_writes(1,1))]
-		pub fn change_relayer(origin: OriginFor<T>, new_relayer: T::AccountId) -> DispatchResultWithPostInfo {
+		pub fn change_relayer(
+			origin: OriginFor<T>,
+			new_relayer: T::AccountId,
+		) -> DispatchResultWithPostInfo {
 			ensure_root(origin)?;
 			let old_relayer = Relayer::<T>::get();
-			ensure!(Some(&new_relayer) != old_relayer.as_ref(), Error::<T>::RelayerNotChanged);
+			ensure!(
+				Some(&new_relayer) != old_relayer.as_ref(),
+				Error::<T>::RelayerNotChanged
+			);
 			Relayer::<T>::put(&new_relayer);
 			Self::deposit_event(Event::RelayerChanged(new_relayer));
 			Ok(().into())
 		}
 
 		#[pallet::weight(0 + T::DbWeight::get().reads_writes(1,1))]
-		pub fn store_erc20_burned_transactions(origin: OriginFor<T>, height: u64, claims:Vec<(EthereumTxHash, EthereumAddress, BalanceOf<T>)>) -> DispatchResultWithPostInfo {
+		pub fn store_erc20_burned_transactions(
+			origin: OriginFor<T>,
+			height: u64,
+			claims: Vec<(EthereumTxHash, EthereumAddress, BalanceOf<T>)>,
+		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 			let relayer = Relayer::<T>::get();
 			ensure!(relayer.is_some(), Error::<T>::NoRelayer);
 			ensure!(Some(&who) == relayer.as_ref(), Error::<T>::CallerNotRelayer);
 			// check first
 			for (eth_tx_hash, _, _) in claims.iter() {
-				ensure!(!BurnedTransactions::<T>::contains_key(&eth_tx_hash), Error::<T>::TxHashAlreadyExist);
+				ensure!(
+					!BurnedTransactions::<T>::contains_key(&eth_tx_hash),
+					Error::<T>::TxHashAlreadyExist
+				);
 			}
 			for (eth_tx_hash, eth_address, erc20_amount) in claims.iter() {
-				BurnedTransactions::<T>::insert(&eth_tx_hash, (eth_address.clone(), erc20_amount.clone()));
+				BurnedTransactions::<T>::insert(
+					&eth_tx_hash,
+					(eth_address.clone(), erc20_amount.clone()),
+				);
 				ClaimState::insert(&eth_tx_hash, false);
-				Self::deposit_event(Event::ERC20TransactionStored(who.clone(), *eth_tx_hash, *eth_address, *erc20_amount));
+				Self::deposit_event(Event::ERC20TransactionStored(
+					who.clone(),
+					*eth_tx_hash,
+					*eth_address,
+					*erc20_amount,
+				));
 			}
 			let end_height = EndHeight::get();
-					if height > end_height {
+			if height > end_height {
 				EndHeight::put(height);
 			}
 			Ok(().into())
 		}
 
 		#[pallet::weight(0 + T::DbWeight::get().reads_writes(1,1))]
-		pub fn claim_erc20_token(origin: OriginFor<T>, account: T::AccountId, eth_tx_hash: EthereumTxHash, eth_signature: EcdsaSignature) -> DispatchResultWithPostInfo {
+		pub fn claim_erc20_token(
+			origin: OriginFor<T>,
+			account: T::AccountId,
+			eth_tx_hash: EthereumTxHash,
+			eth_signature: EcdsaSignature,
+		) -> DispatchResultWithPostInfo {
 			let _ = ensure_none(origin)?;
-			ensure!(BurnedTransactions::<T>::contains_key(&eth_tx_hash), Error::<T>::TxHashNotFound);
+			ensure!(
+				BurnedTransactions::<T>::contains_key(&eth_tx_hash),
+				Error::<T>::TxHashNotFound
+			);
 			ensure!(!ClaimState::get(&eth_tx_hash), Error::<T>::TxAlreadyClaimed);
 			let address = Encode::encode(&account);
 			let signer = Self::eth_recover(&eth_signature, &address, &eth_tx_hash.0)
@@ -267,38 +292,42 @@ pub mod pallet {
 		fn eth_recover(s: &EcdsaSignature, what: &[u8], extra: &[u8]) -> Option<EthereumAddress> {
 			let msg = keccak_256(&Self::ethereum_signable_message(what, extra));
 			let mut res = EthereumAddress::default();
-			res.0.copy_from_slice(&keccak_256(&secp256k1_ecdsa_recover(&s.0, &msg).ok()?[..])[12..]);
+			res.0
+				.copy_from_slice(&keccak_256(&secp256k1_ecdsa_recover(&s.0, &msg).ok()?[..])[12..]);
 			Some(res)
 		}
 	}
 
 	impl<T: Config> frame_support::unsigned::ValidateUnsigned for Pallet<T> {
 		type Call = Call<T>;
-	
+
 		fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
 			const PRIORITY: u64 = 100;
-	
+
 			let (maybe_signer, tx_hash) = match call {
 				Call::claim_erc20_token(account, eth_tx_hash, eth_signature) => {
 					let address = Encode::encode(&account);
-					(Self::eth_recover(&eth_signature, &address, &eth_tx_hash.0), eth_tx_hash)
+					(
+						Self::eth_recover(&eth_signature, &address, &eth_tx_hash.0),
+						eth_tx_hash,
+					)
 				}
 				_ => return Err(InvalidTransaction::Call.into()),
 			};
-	
+
 			let e = InvalidTransaction::Custom(ValidityError::TxHashNotFound.into());
 			ensure!(BurnedTransactions::<T>::contains_key(&tx_hash), e);
-	
+
 			let signer = maybe_signer.ok_or(InvalidTransaction::BadProof)?;
-	
+
 			let e = InvalidTransaction::Custom(ValidityError::InvalidSigner.into());
 			let stored_tx = BurnedTransactions::<T>::get(&tx_hash);
 			let stored_signer = stored_tx.0;
 			ensure!(signer == stored_signer, e);
-	
+
 			let e = InvalidTransaction::Custom(ValidityError::TxAlreadyClaimed.into());
 			ensure!(!ClaimState::get(&tx_hash), e);
-	
+
 			Ok(ValidTransaction {
 				priority: PRIORITY,
 				requires: vec![],
@@ -308,9 +337,7 @@ pub mod pallet {
 			})
 		}
 	}
-
 }
-
 
 #[repr(u8)]
 pub enum ValidityError {
@@ -329,5 +356,3 @@ impl From<ValidityError> for u8 {
 		err as u8
 	}
 }
-
-
