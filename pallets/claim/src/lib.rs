@@ -136,12 +136,12 @@ pub mod pallet {
 	pub type EndHeight<T: Config> = StorageValue<_, u64>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn wallet)]
-	pub type Wallet<T: Config> = StorageMap<_, Blake2_128Concat, EthereumTxHash, (EthereumAddress, BalanceOf<T>)>;
+	#[pallet::getter(fn destroyed_transaction)]
+	pub type BurnedTransactions<T: Config> = StorageMap<_, Blake2_128Concat, EthereumTxHash, (EthereumAddress, BalanceOf<T>)>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn wallet)]
-	pub type Wallet<T: Config> = StorageMap<_, Blake2_128Concat, EthereumTxHash, bool>;
+	#[pallet::getter(fn claim_state)]
+	pub type ClaimState<T: Config> = StorageMap<_, Blake2_128Concat, EthereumTxHash, bool>;
 
 
 	#[pallet::storage]
@@ -201,7 +201,7 @@ pub mod pallet {
 			let old_relayer = Relayer::<T>::get();
 			ensure!(Some(&new_relayer) != old_relayer.as_ref(), Error::<T>::RelayerNotChanged);
 			Relayer::<T>::put(&new_relayer);
-			Self::deposit_event(RawEvent::RelayerChanged(new_relayer));
+			Self::deposit_event(Event::RelayerChanged(new_relayer));
 			Ok(())
 		}
 
@@ -218,7 +218,7 @@ pub mod pallet {
 			for (eth_tx_hash, eth_address, erc20_amount) in claims.iter() {
 				BurnedTransactions::<T>::insert(&eth_tx_hash, (eth_address.clone(), erc20_amount.clone()));
 				ClaimState::insert(&eth_tx_hash, false);
-				Self::deposit_event(RawEvent::ERC20TransactionStored(who.clone(), *eth_tx_hash, *eth_address, *erc20_amount));
+				Self::deposit_event(Event::ERC20TransactionStored(who.clone(), *eth_tx_hash, *eth_address, *erc20_amount));
 			}
 			let end_height = EndHeight::get();
 					if height > end_height {
@@ -241,7 +241,7 @@ pub mod pallet {
 			// mint coins
 			let imbalance = T::Currency::deposit_creating(&account, tx.1);
 			drop(imbalance);
-			Self::deposit_event(RawEvent::ERC20TokenClaimed(account, eth_tx_hash, tx.1));
+			Self::deposit_event(Event::ERC20TokenClaimed(account, eth_tx_hash, tx.1));
 			Ok(())
 		}
 	}
