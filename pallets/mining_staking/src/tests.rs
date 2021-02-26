@@ -62,7 +62,7 @@ fn test_stake() {
 		assert_ok!(MiningStaking::stake(Origin::signed(1), 3, 30));
 		assert_eq!(MiningStaking::pending_staking(1, 3), Some(30));
 		// 20 remains available
-		assert_eq!(MiningStaking::available(&1), 20i128);
+		assert_eq!(MiningStaking::available(&1), 20u128);
 		assert_eq!(MiningStaking::wallet_locked(1), Some(80));
 		// Stake more than we have (stake 31 to 4)
 		assert_noop!(
