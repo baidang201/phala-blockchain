@@ -202,7 +202,7 @@ pub mod pallet {
 			ensure!(Some(&new_relayer) != old_relayer.as_ref(), Error::<T>::RelayerNotChanged);
 			Relayer::<T>::put(&new_relayer);
 			Self::deposit_event(Event::RelayerChanged(new_relayer));
-			Ok(())
+			Ok(().into())
 		}
 
 		#[pallet::weight(0 + T::DbWeight::get().reads_writes(1,1))]
@@ -224,7 +224,7 @@ pub mod pallet {
 					if height > end_height {
 				EndHeight::put(height);
 			}
-			Ok(())
+			Ok(().into())
 		}
 
 		#[pallet::weight(0 + T::DbWeight::get().reads_writes(1,1))]
@@ -242,7 +242,7 @@ pub mod pallet {
 			let imbalance = T::Currency::deposit_creating(&account, tx.1);
 			drop(imbalance);
 			Self::deposit_event(Event::ERC20TokenClaimed(account, eth_tx_hash, tx.1));
-			Ok(())
+			Ok(().into())
 		}
 	}
 
