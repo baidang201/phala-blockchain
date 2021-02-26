@@ -272,7 +272,7 @@ pub mod pallet {
 		}
 	}
 
-	impl<T: Config> frame_support::unsigned::ValidateUnsigned for Module<T> {
+	impl<T: Config> frame_support::unsigned::ValidateUnsigned for Pallet<T> {
 		type Call = Call<T>;
 	
 		fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
