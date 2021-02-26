@@ -1,7 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 use codec::{Decode, Encode};
 use frame_support::{
-	decl_error, decl_event, decl_module, decl_storage, dispatch, ensure, traits::Currency,
+	ensure, traits::Currency,
 	RuntimeDebug,
 };
 use frame_system::{ensure_none, ensure_root, ensure_signed};
@@ -111,40 +111,58 @@ impl<'de> Deserialize<'de> for EthereumTxHash {
 pub type BalanceOf<T> =
 	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
-/// Configure the pallet by specifying the parameters and types on which it depends.
-pub trait Config: frame_system::Config {
-	/// Because this pallet emits events, it depends on the runtime's definition of an event.
-	type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
-	type Call: From<Call<Self>>;
-	type Currency: Currency<Self::AccountId>;
-}
 
-decl_storage! {
-	trait Store for Module<T: Config> as PhaClaim {
-		EndHeight get(fn end_height): u64;
-		BurnedTransactions get(fn destroyed_transaction): map hasher(blake2_128_concat) EthereumTxHash => (EthereumAddress, BalanceOf<T>);
-		ClaimState get(fn claim_state): map hasher(blake2_128_concat) EthereumTxHash => bool;
-		Relayer get(fn relayer): Option<T::AccountId>;
+#[frame_support::pallet]
+pub mod pallet {
+	use frame_support::pallet_prelude::*;
+	use frame_system::pallet_prelude::*;
+	use super::*;
+
+	/// Configure the pallet by specifying the parameters and types on which it depends.
+	#[pallet::config]
+	pub trait Config: frame_system::Config {
+		/// Because this pallet emits events, it depends on the runtime's definition of an event.
+		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+		type Call: From<Call<Self>>;
+		type Currency: Currency<Self::AccountId>;
 	}
-}
 
-decl_event!(
-	pub enum Event<T>
-	where
-		AccountId = <T as frame_system::Config>::AccountId,
-		Balance = BalanceOf<T>,
-	{
+	#[pallet::pallet]
+	#[pallet::generate_store(pub(super) trait Store)]
+	pub struct Pallet<T>(_);
+
+	#[pallet::storage]
+	#[pallet::getter(fn end_height)]
+	pub type EndHeight<T: Config> = StorageValue<_, u64>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn wallet)]
+	pub type Wallet<T: Config> = StorageMap<_, Blake2_128Concat, EthereumTxHash, (EthereumAddress, BalanceOf<T>>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn wallet)]
+	pub type Wallet<T: Config> = StorageMap<_, Blake2_128Concat, EthereumTxHash, bool>;
+
+
+	#[pallet::storage]
+	#[pallet::getter(fn relayer)]
+	pub type Relayer<T: Config> = StorageValue<_, Option<T::AccountId>>;
+
+
+	#[pallet::event]
+	#[pallet::metadata(T::AccountId = "AccountId", BalanceOf<T> = "Balance")]
+	#[pallet::generate_deposit(pub(super) fn deposit_event)]
+	pub enum Event<T: Config> {
 		/// Event emitted when a transaction has been stored.
-		ERC20TransactionStored(AccountId, EthereumTxHash, EthereumAddress, Balance),
+		ERC20TransactionStored(AccountId, EthereumTxHash, EthereumAddress, BalanceOf<T>),
 		/// Event emitted when a transaction has been claimed.
-		ERC20TokenClaimed(AccountId, EthereumTxHash, Balance),
+		ERC20TokenClaimed(AccountId, EthereumTxHash, BalanceOf<T>),
 		/// Event emitted when the relayer has been changed.
 		RelayerChanged(AccountId),
 	}
-);
 
-decl_error! {
-	pub enum Error for Module<T: Config> {
+	#[pallet::error]
+	pub enum Error<T> {
 		/// The transaction signature is invalid.
 		InvalidSignature,
 		/// The signer is not claim transaction sender.
@@ -164,16 +182,21 @@ decl_error! {
 		/// The module doesn't set relyer
 		NoRelayer,
 	}
-}
 
-decl_module! {
-	pub struct Module<T: Config> for enum Call where origin: T::Origin {
-		// Errors must be initialized if they are used by the pallet.
-		type Error = Error<T>;
-		fn deposit_event() = default;
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
 
-		#[weight = 0]
-		pub fn change_relayer(origin, new_relayer: T::AccountId) -> dispatch::DispatchResult {
+	// Dispatchable functions allows users to interact with the pallet and invoke state changes.
+	// These functions materialize as "extrinsics", which are often compared to transactions.
+	// Dispatchable functions must be annotated with a weight and must return a DispatchResult.
+	#[pallet::call]
+	impl<T:Config> Pallet<T> {
+		/// An example dispatchable that takes a singles value as a parameter, writes the value to
+		/// storage and emits an event. This function must be dispatched by a signed extrinsic.
+		/// Deposits to the stash account wallet.
+		
+		#[pallet::weight(0 + T::DbWeight::get().reads_writes(1,1))]
+		pub fn change_relayer(origin: OriginFor<T>, new_relayer: T::AccountId) -> DispatchResultWithPostInfo {
 			ensure_root(origin)?;
 			let old_relayer = Relayer::<T>::get();
 			ensure!(Some(&new_relayer) != old_relayer.as_ref(), Error::<T>::RelayerNotChanged);
@@ -182,8 +205,8 @@ decl_module! {
 			Ok(())
 		}
 
-		#[weight = 0]
-		pub fn store_erc20_burned_transactions(origin, height: u64, claims:Vec<(EthereumTxHash, EthereumAddress, BalanceOf<T>)>) -> dispatch::DispatchResult {
+		#[pallet::weight(0 + T::DbWeight::get().reads_writes(1,1))]
+		pub fn store_erc20_burned_transactions(origin: OriginFor<T>, height: u64, claims:Vec<(EthereumTxHash, EthereumAddress, BalanceOf<T>)>) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 			let relayer = Relayer::<T>::get();
 			ensure!(relayer.is_some(), Error::<T>::NoRelayer);
@@ -198,14 +221,14 @@ decl_module! {
 				Self::deposit_event(RawEvent::ERC20TransactionStored(who.clone(), *eth_tx_hash, *eth_address, *erc20_amount));
 			}
 			let end_height = EndHeight::get();
-			   if height > end_height {
+					if height > end_height {
 				EndHeight::put(height);
 			}
 			Ok(())
 		}
 
-		#[weight = 0]
-		pub fn claim_erc20_token(origin, account: T::AccountId, eth_tx_hash: EthereumTxHash, eth_signature: EcdsaSignature) -> dispatch::DispatchResult {
+		#[pallet::weight(0 + T::DbWeight::get().reads_writes(1,1))]
+		pub fn claim_erc20_token(origin: OriginFor<T>, account: T::AccountId, eth_tx_hash: EthereumTxHash, eth_signature: EcdsaSignature) -> DispatchResultWithPostInfo {
 			let _ = ensure_none(origin)?;
 			ensure!(BurnedTransactions::<T>::contains_key(&eth_tx_hash), Error::<T>::TxHashNotFound);
 			ensure!(!ClaimState::get(&eth_tx_hash), Error::<T>::TxAlreadyClaimed);
@@ -222,33 +245,35 @@ decl_module! {
 			Ok(())
 		}
 	}
-}
 
-impl<T: Config> Module<T> {
-	// Constructs the message that Ethereum RPC's `personal_sign` and `eth_sign` would sign.
-	fn ethereum_signable_message(what: &[u8], extra: &[u8]) -> Vec<u8> {
-		let mut l = what.len() + extra.len();
-		let mut rev = Vec::new();
-		while l > 0 {
-			rev.push(b'0' + (l % 10) as u8);
-			l /= 10;
+	impl<T: Config> Pallet<T> {
+		// Constructs the message that Ethereum RPC's `personal_sign` and `eth_sign` would sign.
+		fn ethereum_signable_message(what: &[u8], extra: &[u8]) -> Vec<u8> {
+			let mut l = what.len() + extra.len();
+			let mut rev = Vec::new();
+			while l > 0 {
+				rev.push(b'0' + (l % 10) as u8);
+				l /= 10;
+			}
+			let mut v = b"\x19Ethereum Signed Message:\n".to_vec();
+			v.extend(rev.into_iter().rev());
+			v.extend_from_slice(what);
+			v.extend_from_slice(extra);
+			v
 		}
-		let mut v = b"\x19Ethereum Signed Message:\n".to_vec();
-		v.extend(rev.into_iter().rev());
-		v.extend_from_slice(what);
-		v.extend_from_slice(extra);
-		v
+
+		// Attempts to recover the Ethereum address from a message signature signed by using
+		// the Ethereum RPC's `personal_sign` and `eth_sign`.
+		fn eth_recover(s: &EcdsaSignature, what: &[u8], extra: &[u8]) -> Option<EthereumAddress> {
+			let msg = keccak_256(&Self::ethereum_signable_message(what, extra));
+			let mut res = EthereumAddress::default();
+			res.0.copy_from_slice(&keccak_256(&secp256k1_ecdsa_recover(&s.0, &msg).ok()?[..])[12..]);
+			Some(res)
+		}
 	}
 
-	// Attempts to recover the Ethereum address from a message signature signed by using
-	// the Ethereum RPC's `personal_sign` and `eth_sign`.
-	fn eth_recover(s: &EcdsaSignature, what: &[u8], extra: &[u8]) -> Option<EthereumAddress> {
-		let msg = keccak_256(&Self::ethereum_signable_message(what, extra));
-		let mut res = EthereumAddress::default();
-		res.0.copy_from_slice(&keccak_256(&secp256k1_ecdsa_recover(&s.0, &msg).ok()?[..])[12..]);
-		Some(res)
-	}
 }
+
 
 #[repr(u8)]
 pub enum ValidityError {
