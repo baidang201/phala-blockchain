@@ -154,11 +154,11 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// Event emitted when a transaction has been stored.
-		ERC20TransactionStored(AccountId, EthereumTxHash, EthereumAddress, BalanceOf<T>),
+		ERC20TransactionStored(T::AccountId, EthereumTxHash, EthereumAddress, BalanceOf<T>),
 		/// Event emitted when a transaction has been claimed.
-		ERC20TokenClaimed(AccountId, EthereumTxHash, BalanceOf<T>),
+		ERC20TokenClaimed(T::AccountId, EthereumTxHash, BalanceOf<T>),
 		/// Event emitted when the relayer has been changed.
-		RelayerChanged(AccountId),
+		RelayerChanged(T::AccountId),
 	}
 
 	#[pallet::error]
@@ -272,6 +272,43 @@ pub mod pallet {
 		}
 	}
 
+	impl<T: Config> frame_support::unsigned::ValidateUnsigned for Module<T> {
+		type Call = Call<T>;
+	
+		fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
+			const PRIORITY: u64 = 100;
+	
+			let (maybe_signer, tx_hash) = match call {
+				Call::claim_erc20_token(account, eth_tx_hash, eth_signature) => {
+					let address = Encode::encode(&account);
+					(Self::eth_recover(&eth_signature, &address, &eth_tx_hash.0), eth_tx_hash)
+				}
+				_ => return Err(InvalidTransaction::Call.into()),
+			};
+	
+			let e = InvalidTransaction::Custom(ValidityError::TxHashNotFound.into());
+			ensure!(BurnedTransactions::<T>::contains_key(&tx_hash), e);
+	
+			let signer = maybe_signer.ok_or(InvalidTransaction::BadProof)?;
+	
+			let e = InvalidTransaction::Custom(ValidityError::InvalidSigner.into());
+			let stored_tx = BurnedTransactions::<T>::get(&tx_hash);
+			let stored_signer = stored_tx.0;
+			ensure!(signer == stored_signer, e);
+	
+			let e = InvalidTransaction::Custom(ValidityError::TxAlreadyClaimed.into());
+			ensure!(!ClaimState::get(&tx_hash), e);
+	
+			Ok(ValidTransaction {
+				priority: PRIORITY,
+				requires: vec![],
+				provides: vec![("claims", signer).encode()],
+				longevity: TransactionLongevity::max_value(),
+				propagate: true,
+			})
+		}
+	}
+
 }
 
 
@@ -293,39 +330,4 @@ impl From<ValidityError> for u8 {
 	}
 }
 
-impl<T: Config> frame_support::unsigned::ValidateUnsigned for Module<T> {
-	type Call = Call<T>;
 
-	fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
-		const PRIORITY: u64 = 100;
-
-		let (maybe_signer, tx_hash) = match call {
-			Call::claim_erc20_token(account, eth_tx_hash, eth_signature) => {
-				let address = Encode::encode(&account);
-				(Self::eth_recover(&eth_signature, &address, &eth_tx_hash.0), eth_tx_hash)
-			}
-			_ => return Err(InvalidTransaction::Call.into()),
-		};
-
-		let e = InvalidTransaction::Custom(ValidityError::TxHashNotFound.into());
-		ensure!(BurnedTransactions::<T>::contains_key(&tx_hash), e);
-
-		let signer = maybe_signer.ok_or(InvalidTransaction::BadProof)?;
-
-		let e = InvalidTransaction::Custom(ValidityError::InvalidSigner.into());
-		let stored_tx = BurnedTransactions::<T>::get(&tx_hash);
-		let stored_signer = stored_tx.0;
-		ensure!(signer == stored_signer, e);
-
-		let e = InvalidTransaction::Custom(ValidityError::TxAlreadyClaimed.into());
-		ensure!(!ClaimState::get(&tx_hash), e);
-
-		Ok(ValidTransaction {
-			priority: PRIORITY,
-			requires: vec![],
-			provides: vec![("claims", signer).encode()],
-			longevity: TransactionLongevity::max_value(),
-			propagate: true,
-		})
-	}
-}
