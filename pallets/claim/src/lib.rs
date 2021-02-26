@@ -137,7 +137,7 @@ pub mod pallet {
 
 	#[pallet::storage]
 	#[pallet::getter(fn wallet)]
-	pub type Wallet<T: Config> = StorageMap<_, Blake2_128Concat, EthereumTxHash, (EthereumAddress, BalanceOf<T>>;
+	pub type Wallet<T: Config> = StorageMap<_, Blake2_128Concat, EthereumTxHash, (EthereumAddress, BalanceOf<T>)>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn wallet)]
