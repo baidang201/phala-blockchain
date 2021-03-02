@@ -12,6 +12,8 @@ use sp_runtime::transaction_validity::{
 
 use sp_std::prelude::*;
 
+pub use pallet::*;
+
 #[cfg(test)]
 mod mock;
 
@@ -198,11 +200,14 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			ensure_root(origin)?;
 			let old_relayer = Relayer::<T>::get();
-			ensure!(
-				Some(&new_relayer) != old_relayer.as_ref(),
-				Error::<T>::RelayerNotChanged
-			);
-			Relayer::<T>::put(&new_relayer);
+			if old_relayer.is_some() {
+				ensure!(
+					Some(&new_relayer) != old_relayer.unwrap().as_ref(),
+					Error::<T>::RelayerNotChanged
+				);
+			}
+
+			Relayer::<T>::put(Some(&new_relayer));
 			Self::deposit_event(Event::RelayerChanged(new_relayer));
 			Ok(().into())
 		}
@@ -216,7 +221,10 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			let relayer = Relayer::<T>::get();
 			ensure!(relayer.is_some(), Error::<T>::NoRelayer);
-			ensure!(Some(&who) == relayer.as_ref(), Error::<T>::CallerNotRelayer);
+			ensure!(
+				Some(&who) == relayer.unwrap().as_ref(),
+				Error::<T>::CallerNotRelayer
+			);
 			// check first
 			for (eth_tx_hash, _, _) in claims.iter() {
 				ensure!(
@@ -229,7 +237,7 @@ pub mod pallet {
 					&eth_tx_hash,
 					(eth_address.clone(), erc20_amount.clone()),
 				);
-				ClaimState::insert(&eth_tx_hash, false);
+				ClaimState::<T>::insert(&eth_tx_hash, false);
 				Self::deposit_event(Event::ERC20TransactionStored(
 					who.clone(),
 					*eth_tx_hash,
@@ -237,9 +245,12 @@ pub mod pallet {
 					*erc20_amount,
 				));
 			}
-			let end_height = EndHeight::get();
-			if height > end_height {
-				EndHeight::put(height);
+			if let Some(end_height) = EndHeight::<T>::get() {
+				if height > end_height {
+					EndHeight::<T>::put(height);
+				}
+			} else {
+				EndHeight::<T>::put(height);
 			}
 			Ok(().into())
 		}
@@ -256,17 +267,22 @@ pub mod pallet {
 				BurnedTransactions::<T>::contains_key(&eth_tx_hash),
 				Error::<T>::TxHashNotFound
 			);
-			ensure!(!ClaimState::get(&eth_tx_hash), Error::<T>::TxAlreadyClaimed);
+			ensure!(
+				ClaimState::<T>::get(&eth_tx_hash).is_some(),
+				Error::<T>::TxAlreadyClaimed
+			);
 			let address = Encode::encode(&account);
 			let signer = Self::eth_recover(&eth_signature, &address, &eth_tx_hash.0)
 				.ok_or(Error::<T>::InvalidSignature)?;
-			let tx = BurnedTransactions::<T>::get(&eth_tx_hash);
-			ensure!(signer == tx.0, Error::<T>::InvalidSigner);
-			ClaimState::insert(&eth_tx_hash, true);
-			// mint coins
-			let imbalance = T::Currency::deposit_creating(&account, tx.1);
-			drop(imbalance);
-			Self::deposit_event(Event::ERC20TokenClaimed(account, eth_tx_hash, tx.1));
+			if let Some(tx) = BurnedTransactions::<T>::get(&eth_tx_hash) {
+				ensure!(signer == tx.0, Error::<T>::InvalidSigner);
+				ClaimState::<T>::insert(&eth_tx_hash, true);
+				// mint coins
+				let imbalance = T::Currency::deposit_creating(&account, tx.1);
+				drop(imbalance);
+				Self::deposit_event(Event::ERC20TokenClaimed(account, eth_tx_hash, tx.1));
+			}
+
 			Ok(().into())
 		}
 	}
@@ -321,12 +337,13 @@ pub mod pallet {
 			let signer = maybe_signer.ok_or(InvalidTransaction::BadProof)?;
 
 			let e = InvalidTransaction::Custom(ValidityError::InvalidSigner.into());
-			let stored_tx = BurnedTransactions::<T>::get(&tx_hash);
-			let stored_signer = stored_tx.0;
-			ensure!(signer == stored_signer, e);
+			if let Some(stored_tx) = BurnedTransactions::<T>::get(&tx_hash) {
+				let stored_signer = stored_tx.0;
+				ensure!(signer == stored_signer, e);
+			}
 
 			let e = InvalidTransaction::Custom(ValidityError::TxAlreadyClaimed.into());
-			ensure!(!ClaimState::get(&tx_hash), e);
+			ensure!(ClaimState::<T>::get(&tx_hash).is_none(), e);
 
 			Ok(ValidTransaction {
 				priority: PRIORITY,
