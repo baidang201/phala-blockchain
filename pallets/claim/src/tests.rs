@@ -7,6 +7,8 @@ use hex_literal::hex;
 #[test]
 fn store_erc20_burned_transactions_works() {
 	new_test_ext().execute_with(|| {
+		assert_eq!(pallet::EndHeight::<Test>::get(), None);
+
 		assert_ok!(PhaClaim::change_relayer(RawOrigin::Root.into(), 1));
 		let tx_hash = EthereumTxHash(hex![
 			"9c944a0627a9032489f0673246d1f272032f47d29857500ddb7e891c1287079a"
@@ -21,6 +23,7 @@ fn store_erc20_burned_transactions_works() {
 			pallet::BurnedTransactions::<Test>::get(&tx_hash),
 			Some((eth_addr, 100))
 		);
+		assert_eq!(pallet::EndHeight::<Test>::get(), Some(10000));
 	});
 }
 
