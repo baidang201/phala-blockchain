@@ -1,6 +1,6 @@
-use crate::ModuleId;
+use crate::PalletId;
 
-pub const PALLET_ID: ModuleId = ModuleId(*b"Phala!!!");
+pub const PALLET_ID: PalletId = PalletId(*b"Phala!!!");
 pub const RANDOMNESS_SUBJECT: &'static [u8] = b"PhalaPoW";
 pub const BUILTIN_MACHINE_ID: &'static str = "BUILTIN";
 pub const BLOCK_REWARD_TO_KEEP: u32 = 20;
@@ -37,7 +37,7 @@ pub static SUPPORTED_SIG_ALGS: SignatureAlgorithms = &[
     &webpki::RSA_PKCS1_3072_8192_SHA384,
 ];
 
-pub static IAS_SERVER_ROOTS: webpki::TLSServerTrustAnchors = webpki::TLSServerTrustAnchors(&[
+pub static IAS_SERVER_ROOTS: webpki::TlsServerTrustAnchors = webpki::TlsServerTrustAnchors(&[
     /*
      * -----BEGIN CERTIFICATE-----
      * MIIFSzCCA7OgAwIBAgIJANEHdl0yo7CUMA0GCSqGSIb3DQEBCwUAMH4xCzAJBgNV

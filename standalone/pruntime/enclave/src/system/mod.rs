@@ -36,7 +36,6 @@ pub enum TransactionStatus {
     BadDecimal,
     DestroyNotAllowed,
     // for pdiem
-    BadAccountData,
     BadAccountInfo,
     BadLedgerInfo,
     BadTrustedStateData,
@@ -45,6 +44,9 @@ pub enum TransactionStatus {
     BadTransactionWithProof,
     FailedToVerify,
     FailedToGetTransaction,
+    FailedToCalculateBalance,
+    BadChainId,
+    TransferringNotAllowed,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -107,7 +109,8 @@ impl System {
             match req {
                 Request::QueryReceipt { command_index } => match self.get_receipt(command_index) {
                     Some(receipt) => {
-                        let origin = accid_origin.ok_or_else(|| anyhow::Error::msg(Error::NotAuthorized))?;
+                        let origin =
+                            accid_origin.ok_or_else(|| anyhow::Error::msg(Error::NotAuthorized))?;
                         if receipt.account == AccountIdWrapper(origin.clone()) {
                             Ok(Response::QueryReceipt {
                                 receipt: receipt.clone(),
@@ -116,7 +119,9 @@ impl System {
                             Err(anyhow::Error::msg(Error::NotAuthorized))
                         }
                     }
-                    None => Err(anyhow::Error::msg(Error::Other(String::from("Transaction hash not found")))),
+                    None => Err(anyhow::Error::msg(Error::Other(String::from(
+                        "Transaction hash not found",
+                    )))),
                 },
                 Request::GetWorkerEgress { start_sequence } => {
                     let pending_msgs: Vec<SignedWorkerMessage> = self
@@ -128,7 +133,7 @@ impl System {
                         .collect();
                     Ok(Response::GetWorkerEgress {
                         length: pending_msgs.len(),
-                        encoded_egreee_b64: base64::encode(&pending_msgs.encode()),
+                        encoded_egress_b64: base64::encode(&pending_msgs.encode()),
                     })
                 } // If we add more unhandled queries:
                   //   _ => Err(Error::Other("Unknown command".to_string()))
@@ -292,7 +297,7 @@ pub enum Response {
     },
     GetWorkerEgress {
         length: usize,
-        encoded_egreee_b64: String,
+        encoded_egress_b64: String,
     },
     Error(#[serde(with = "serde_anyhow")] anyhow::Error),
 }

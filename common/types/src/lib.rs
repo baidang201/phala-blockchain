@@ -99,7 +99,7 @@ pub struct WorkerInfo<BlockNumber> {
     pub last_updated: u64,
     // mining
     pub state: WorkerStateEnum<BlockNumber>,
-    // preformance
+    // performance
     pub score: Option<Score>,
     // confidence-level
     pub confidence_level: u8,
@@ -146,6 +146,13 @@ pub struct BlockRewardInfo {
 pub struct RoundInfo<BlockNumber> {
     pub round: u32,
     pub start_block: BlockNumber,
+}
+
+#[derive(Encode, Decode, Debug, Default)]
+pub struct StashWorkerStats<Balance> {
+    pub slash: Balance,
+    pub compute_received: Balance,
+    pub online_received: Balance,
 }
 
 #[derive(Encode, Decode, Debug, Default, Clone, PartialEq, Eq)]

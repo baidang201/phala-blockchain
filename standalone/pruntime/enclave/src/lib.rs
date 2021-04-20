@@ -788,11 +788,15 @@ fn save_secret_keys(
     let encoded_vec = serde_cbor::to_vec(&data).unwrap();
     let encoded_slice = encoded_vec.as_slice();
     info!("Length of encoded slice: {}", encoded_slice.len());
-    info!("Encoded slice: {:?}", hex::encode_hex_compact(encoded_slice));
+    info!(
+        "Encoded slice: {:?}",
+        hex::encode_hex_compact(encoded_slice)
+    );
 
     // Seal
     let aad: [u8; 0] = [0_u8; 0];
-    let sealed_data = SgxSealedData::<[u8]>::seal_data(&aad, encoded_slice).map_err(anyhow::Error::msg)?;
+    let sealed_data =
+        SgxSealedData::<[u8]>::seal_data(&aad, encoded_slice).map_err(anyhow::Error::msg)?;
 
     let mut return_output_buf = vec![0; SEAL_DATA_BUF_MAX_LEN].into_boxed_slice();
     let output_len: usize = return_output_buf.len();
@@ -802,7 +806,9 @@ fn save_secret_keys(
 
     let opt = to_sealed_log_for_slice(&sealed_data, output_ptr, output_len as u32);
     if opt.is_none() {
-        return Err(anyhow::Error::msg(sgx_status_t::SGX_ERROR_INVALID_PARAMETER));
+        return Err(anyhow::Error::msg(
+            sgx_status_t::SGX_ERROR_INVALID_PARAMETER,
+        ));
     }
 
     // TODO: check retval and result
@@ -844,7 +850,10 @@ fn load_secret_keys() -> Result<PersistentRuntimeData> {
     let unsealed_data = sealed_data.unseal_data().map_err(anyhow::Error::msg)?;
     let encoded_slice = unsealed_data.get_decrypt_txt();
     info!("Length of encoded slice: {}", encoded_slice.len());
-    info!("Encoded slice: {:?}", hex::encode_hex_compact(encoded_slice));
+    info!(
+        "Encoded slice: {:?}",
+        hex::encode_hex_compact(encoded_slice)
+    );
 
     serde_cbor::from_slice(encoded_slice).map_err(|_| anyhow::Error::msg(Error::DecodeError))
 }
@@ -858,7 +867,13 @@ fn init_secret_keys(
     } else {
         match load_secret_keys() {
             Ok(data) => data,
-            Err(e) if e.is::<Error>() && matches!(e.downcast_ref::<Error>().unwrap(), Error::PersistentRuntimeNotFound) => {
+            Err(e)
+                if e.is::<Error>()
+                    && matches!(
+                        e.downcast_ref::<Error>().unwrap(),
+                        Error::PersistentRuntimeNotFound
+                    ) =>
+            {
                 warn!("Persistent data not found.");
                 let ecdsa_sk = SecretKey::random(&mut rand::thread_rng());
                 let ecdh_sk = ecdh::generate_key();
@@ -974,8 +989,7 @@ fn init_runtime(input: InitRuntimeReq) -> Result<Value, Value> {
         return Err(json!({"message": "Already initialized"}));
     }
 
-    env_logger::from_env(env_logger::Env::default().default_filter_or("info"))
-        .init();
+    env_logger::from_env(env_logger::Env::default().default_filter_or("info")).init();
 
     // load identity
     if let Some(key) = input.debug_set_key {
@@ -1298,10 +1312,15 @@ fn dispatch_block(input: DispatchBlockReq) -> Result<Value, Value> {
         .iter()
         .map(|d| Decode::decode(&mut &d[..]))
         .collect();
-    let blocks = parsed_blocks.map_err(|_| error_msg("Invalid block"))?;
+    let all_blocks = parsed_blocks.map_err(|_| error_msg("Invalid block"))?;
 
-    // validate blocks
     let mut local_state = LOCAL_STATE.lock().unwrap();
+    // Ignore processed blocks
+    let blocks: Vec<_> = all_blocks
+        .iter()
+        .filter(|b| b.block_header.number >= local_state.blocknum)
+        .collect();
+    // Validate blocks
     let first_block = &blocks
         .first()
         .ok_or_else(|| error_msg("No block in the request"))?;
@@ -1319,7 +1338,6 @@ fn dispatch_block(input: DispatchBlockReq) -> Result<Value, Value> {
         if block.block_header.hash() != *expected_hash {
             return Err(error_msg("Unexpected block hash"));
         }
-        // TODO: examine extrinsic merkle tree
     }
 
     let ecdh_privkey = ecdh::clone_key(
@@ -1516,6 +1534,10 @@ fn get_info(_input: &Map<String, Value>) -> Result<Value, Value> {
     let blocknum = local_state.blocknum;
     let machine_id = local_state.machine_id;
 
+    let system_state = SYSTEM_STATE.lock().unwrap();
+    let sys_seq_start = system_state.egress.sequence;
+    let sys_len = system_state.egress.queue.len();
+
     Ok(json!({
         "initialized": initialized,
         "public_key": s_pk,
@@ -1524,6 +1546,10 @@ fn get_info(_input: &Map<String, Value>) -> Result<Value, Value> {
         "blocknum": blocknum,
         "machine_id": machine_id,
         "dev_mode": local_state.dev_mode,
+        "system_egress": {
+            "sequence": sys_seq_start,
+            "len": sys_len,
+        }
     }))
 }
 
